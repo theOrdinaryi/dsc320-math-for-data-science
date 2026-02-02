@@ -1,0 +1,761 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "16c92209-9df2-4c4c-bc34-5eec0ebbe708",
+   "metadata": {},
+   "source": [
+    "# Data Scaling and Working with Dataframes\n",
+    "\n",
+    "This notebook completes the exercise using `calif_housing_data.csv`.\n",
+    "I am working through normalization, standardization, and dataframe tasks step by step."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "1e730818-da77-42b9-a9e2-0d2ec4d09d63",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e44021a4-da7c-4f87-b708-01839eab8a93",
+   "metadata": {},
+   "source": [
+    "## 1) Data Normalization (0 to 1)\n",
+    "\n",
+    "Goal: convert a vector so the smallest value becomes 0 and the largest becomes 1 using:\n",
+    "\n",
+    "x_norm = (x - min(x)) / (max(x) - min(x))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "6ac1883c-51f2-4de3-bc2e-e092f96c0f6b",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([0. , 0.2, 0.5, 1. ])"
+      ]
+     },
+     "execution_count": 2,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "def normalize_vector(x):\n",
+    "    x = np.asarray(x, dtype=float)\n",
+    "    x_min = np.min(x)\n",
+    "    x_max = np.max(x)\n",
+    "    denom = x_max - x_min\n",
+    "    \n",
+    "    # If all values are the same, avoid dividing by zero\n",
+    "    if denom == 0:\n",
+    "        return np.zeros_like(x)\n",
+    "    \n",
+    "    return (x - x_min) / denom\n",
+    "\n",
+    "# test\n",
+    "test = np.array([10, 12, 15, 20])\n",
+    "normalize_vector(test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "48c80630-496a-4dc0-9eac-bb9360a4fbbc",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(np.float64(0.0), np.float64(1.0))"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "norm = normalize_vector(test)\n",
+    "norm.min(), norm.max()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9894f1c9-f910-4583-9433-b347674d7fdc",
+   "metadata": {},
+   "source": [
+    "## 2) Data Standardization (z-score)\n",
+    "\n",
+    "Goal: convert a vector to z-scores:\n",
+    "\n",
+    "x_std = (x - mean(x)) / std(x)\n",
+    "\n",
+    "This should produce a result with mean near 0 and std near 1 (if std is not 0)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "a905891a-5185-4be3-b67a-b045372def73",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([-0.97716212, -0.51732112,  0.17244037,  1.32204287])"
+      ]
+     },
+     "execution_count": 4,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "def standardize_vector(x):\n",
+    "    x = np.asarray(x, dtype=float)\n",
+    "    mean = np.mean(x)\n",
+    "    std = np.std(x, ddof=1)  # sample standard deviation\n",
+    "    \n",
+    "    if std == 0:\n",
+    "        return np.zeros_like(x)\n",
+    "    \n",
+    "    return (x - mean) / std\n",
+    "\n",
+    "standardize_vector(test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "b6fb313e-8ad6-4096-8038-819a9c6783d2",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(np.float64(5.551115123125783e-17), np.float64(1.0))"
+      ]
+     },
+     "execution_count": 5,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "z = standardize_vector(test)\n",
+    "z.mean(), z.std(ddof=1)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2125eb64-f137-4cd0-8c99-52cedd7f33db",
+   "metadata": {},
+   "source": [
+    "## 3) Working with a DataFrame\n",
+    "\n",
+    "Now I will load `calif_housing_data.csv` and answer questions (a) through (e)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "27dfdca2-6708-4cde-b3d2-2d7c77fb18ee",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>housing_median_age</th>\n",
+       "      <th>total_bedrooms</th>\n",
+       "      <th>households</th>\n",
+       "      <th>median_income</th>\n",
+       "      <th>median_house_value</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>41</td>\n",
+       "      <td>129.0</td>\n",
+       "      <td>126</td>\n",
+       "      <td>8.3252</td>\n",
+       "      <td>452600.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>21</td>\n",
+       "      <td>1106.0</td>\n",
+       "      <td>1138</td>\n",
+       "      <td>8.3014</td>\n",
+       "      <td>358500.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>52</td>\n",
+       "      <td>190.0</td>\n",
+       "      <td>177</td>\n",
+       "      <td>7.2574</td>\n",
+       "      <td>352100.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>52</td>\n",
+       "      <td>235.0</td>\n",
+       "      <td>219</td>\n",
+       "      <td>5.6431</td>\n",
+       "      <td>341300.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>52</td>\n",
+       "      <td>280.0</td>\n",
+       "      <td>259</td>\n",
+       "      <td>3.8462</td>\n",
+       "      <td>342200.0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   housing_median_age  total_bedrooms  households  median_income  \\\n",
+       "0                  41           129.0         126         8.3252   \n",
+       "1                  21          1106.0        1138         8.3014   \n",
+       "2                  52           190.0         177         7.2574   \n",
+       "3                  52           235.0         219         5.6431   \n",
+       "4                  52           280.0         259         3.8462   \n",
+       "\n",
+       "   median_house_value  \n",
+       "0            452600.0  \n",
+       "1            358500.0  \n",
+       "2            352100.0  \n",
+       "3            341300.0  \n",
+       "4            342200.0  "
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df = pd.read_csv(\"calif_housing_data.csv\")\n",
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "f6559e83-9013-4015-80dc-8900ebba1be6",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "Index(['housing_median_age', 'total_bedrooms', 'households', 'median_income',\n",
+       "       'median_house_value'],\n",
+       "      dtype='object')"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.columns"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "48c2aa85-d648-4e5e-9873-8e9c5e7b2f22",
+   "metadata": {},
+   "source": [
+    "### a) Row count"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "f0984abc-2592-4105-9c2f-2b3c12f54588",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "20640"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.shape[0]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d3e5cbb3-e593-45e4-a102-b90a9a75cb81",
+   "metadata": {},
+   "source": [
+    "### (b) Target vector\n",
+    "\n",
+    "I am predicting median house value, so the target vector is the `median_house_value` column."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "7341a53c-cd6d-4cbb-b1bc-1ab3d66b40ba",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0    452600.0\n",
+       "1    358500.0\n",
+       "2    352100.0\n",
+       "3    341300.0\n",
+       "4    342200.0\n",
+       "Name: median_house_value, dtype: float64"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "y = df[\"median_house_value\"]\n",
+    "y.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2c9a4453-d946-44fb-a447-52b4d7568787",
+   "metadata": {},
+   "source": [
+    "### (c) New feature: bedrooms per household\n",
+    "\n",
+    "bedrooms_per_household = total_bedrooms / households"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "28f986f3-374f-4e6d-a1f6-22bee0670eff",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>total_bedrooms</th>\n",
+       "      <th>households</th>\n",
+       "      <th>bedrooms_per_household</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>129.0</td>\n",
+       "      <td>126</td>\n",
+       "      <td>1.023810</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>1106.0</td>\n",
+       "      <td>1138</td>\n",
+       "      <td>0.971880</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>190.0</td>\n",
+       "      <td>177</td>\n",
+       "      <td>1.073446</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>235.0</td>\n",
+       "      <td>219</td>\n",
+       "      <td>1.073059</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>280.0</td>\n",
+       "      <td>259</td>\n",
+       "      <td>1.081081</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   total_bedrooms  households  bedrooms_per_household\n",
+       "0           129.0         126                1.023810\n",
+       "1          1106.0        1138                0.971880\n",
+       "2           190.0         177                1.073446\n",
+       "3           235.0         219                1.073059\n",
+       "4           280.0         259                1.081081"
+      ]
+     },
+     "execution_count": 10,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df[\"bedrooms_per_household\"] = df[\"total_bedrooms\"] / df[\"households\"]\n",
+    "\n",
+    "df[[\"total_bedrooms\", \"households\", \"bedrooms_per_household\"]].head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f7f0a8b6-c02f-42ad-aa74-5deb404c41e6",
+   "metadata": {},
+   "source": [
+    "### (d) New dataframe with three features\n",
+    "\n",
+    "I will keep:\n",
+    "- housing_median_age\n",
+    "- median_income\n",
+    "- bedrooms_per_household"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "fa76712b-221c-4114-925b-dbcf750812cb",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>housing_median_age</th>\n",
+       "      <th>median_income</th>\n",
+       "      <th>bedrooms_per_household</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>41</td>\n",
+       "      <td>8.3252</td>\n",
+       "      <td>1.023810</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>21</td>\n",
+       "      <td>8.3014</td>\n",
+       "      <td>0.971880</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>52</td>\n",
+       "      <td>7.2574</td>\n",
+       "      <td>1.073446</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>52</td>\n",
+       "      <td>5.6431</td>\n",
+       "      <td>1.073059</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>52</td>\n",
+       "      <td>3.8462</td>\n",
+       "      <td>1.081081</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   housing_median_age  median_income  bedrooms_per_household\n",
+       "0                  41         8.3252                1.023810\n",
+       "1                  21         8.3014                0.971880\n",
+       "2                  52         7.2574                1.073446\n",
+       "3                  52         5.6431                1.073059\n",
+       "4                  52         3.8462                1.081081"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "X = df[[\"housing_median_age\", \"median_income\", \"bedrooms_per_household\"]].copy()\n",
+    "X.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2e2a077f-e7bf-4baf-8357-bfc5f1f82430",
+   "metadata": {},
+   "source": [
+    "### (e) Standardize the features\n",
+    "\n",
+    "I will standardize each column of X to z-scores."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "732304a5-3a44-45ee-99ed-4bf6c4002ab9",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>housing_median_age</th>\n",
+       "      <th>median_income</th>\n",
+       "      <th>bedrooms_per_household</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0.982119</td>\n",
+       "      <td>2.344709</td>\n",
+       "      <td>-0.153859</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>-0.607004</td>\n",
+       "      <td>2.332181</td>\n",
+       "      <td>-0.262930</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>1.856137</td>\n",
+       "      <td>1.782656</td>\n",
+       "      <td>-0.049603</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>1.856137</td>\n",
+       "      <td>0.932945</td>\n",
+       "      <td>-0.050416</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>1.856137</td>\n",
+       "      <td>-0.012881</td>\n",
+       "      <td>-0.033567</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   housing_median_age  median_income  bedrooms_per_household\n",
+       "0            0.982119       2.344709               -0.153859\n",
+       "1           -0.607004       2.332181               -0.262930\n",
+       "2            1.856137       1.782656               -0.049603\n",
+       "3            1.856137       0.932945               -0.050416\n",
+       "4            1.856137      -0.012881               -0.033567"
+      ]
+     },
+     "execution_count": 12,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "X_standardized = (X - X.mean()) / X.std(ddof=1)\n",
+    "X_standardized.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "d2cef289-4803-49ba-8506-8cc45d492aaf",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>mean</th>\n",
+       "      <th>std_ddof1</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>housing_median_age</th>\n",
+       "      <td>3.855658e-17</td>\n",
+       "      <td>1.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>median_income</th>\n",
+       "      <td>7.711317e-17</td>\n",
+       "      <td>1.0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>bedrooms_per_household</th>\n",
+       "      <td>9.180408e-17</td>\n",
+       "      <td>1.0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                                mean  std_ddof1\n",
+       "housing_median_age      3.855658e-17        1.0\n",
+       "median_income           7.711317e-17        1.0\n",
+       "bedrooms_per_household  9.180408e-17        1.0"
+      ]
+     },
+     "execution_count": 13,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "pd.DataFrame({\n",
+    "    \"mean\": X_standardized.mean(),\n",
+    "    \"std_ddof1\": X_standardized.std(ddof=1)\n",
+    "})"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6fe72cdc-492e-4cbf-bfda-abfc00b4e92c",
+   "metadata": {},
+   "source": [
+    "## Final Verification and Interpretation\n",
+    "\n",
+    "After standardizing the feature matrix, I verified that each column has a mean extremely close to 0 and a standard deviation of 1 (using the sample standard deviation). This confirms that the z-score transformation was applied correctly.\n",
+    "\n",
+    "Standardization places all features on a common scale, which is important for many statistical and machine learning models. Without scaling, features with larger numeric ranges (such as income) could dominate those with smaller ranges (such as age or ratios). By standardizing, each feature contributes proportionally to the model."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.13.9"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
